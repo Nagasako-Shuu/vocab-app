@@ -2,309 +2,284 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>英単語アプリ</title>
-
 <style>
-
+*{
+   touch-action: manipulation;
+}
 body{
-    font-family:sans-serif;
-    margin:20px;
-    text-align:center;
-    background:#f5f5f5;
+   font-family:sans-serif;
+   margin:20px;
+   text-align:center;
+   background:#f5f5f5;
 }
-
 h1{
-    margin-bottom:20px;
+   margin-bottom:20px;
 }
-
 select{
-    padding:10px;
-    font-size:16px;
-    margin-bottom:20px;
+   padding:10px;
+   font-size:16px;
+   margin-bottom:20px;
+   border-radius:8px;
 }
-
 #word{
-    background:white;
-    border-radius:15px;
-    padding:30px;
-    font-size:36px;
-    font-weight:bold;
-    margin-bottom:20px;
-    cursor:pointer;
-    min-height:80px;
+   background:white;
+   border-radius:15px;
+   padding:30px;
+   font-size:36px;
+   font-weight:bold;
+   margin-bottom:20px;
+   cursor:pointer;
+   min-height:80px;
+   user-select:none;
+   -webkit-user-select:none;
 }
-
 #detail{
-    background:white;
-    border-radius:15px;
-    padding:20px;
-    margin-bottom:20px;
-    min-height:120px;
-    text-align:left;
+   background:white;
+   border-radius:15px;
+   padding:20px;
+   margin-bottom:20px;
+   min-height:120px;
+   text-align:left;
 }
-
 button{
-    padding:15px 25px;
-    margin:10px;
-    font-size:18px;
-    border:none;
-    border-radius:10px;
-    cursor:pointer;
+   padding:15px 25px;
+   margin:8px;
+   font-size:18px;
+   border:none;
+   border-radius:10px;
+   cursor:pointer;
 }
-
 .known{
-    background:#4CAF50;
-    color:white;
+   background:#4CAF50;
+   color:white;
 }
-
 .unknown{
-    background:#f44336;
-    color:white;
+   background:#f44336;
+   color:white;
 }
-
 .next{
-    background:#2196F3;
-    color:white;
+   background:#2196F3;
+   color:white;
 }
-
+.reset{
+   background:#ff9800;
+   color:white;
+}
 .stats{
-    margin-top:20px;
-    font-size:16px;
+   margin-top:20px;
+   font-size:16px;
 }
-
 </style>
 </head>
-
 <body>
-
 <h1>英単語アプリ</h1>
-
 <select id="filter">
-    <option value="all">全単語</option>
-    <option value="unlearned">未学習</option>
-    <option value="unknown">わからない</option>
+<option value="all">全単語</option>
+<option value="unlearned">未学習</option>
+<option value="unknown">わからない</option>
+<option value="known">わかる</option>
 </select>
-
 <div id="word">読み込み中...</div>
-
 <div id="detail">
 単語をタップすると意味を表示
 </div>
-
 <button class="known" onclick="markKnown()">
 わかる
 </button>
-
 <button class="unknown" onclick="markUnknown()">
 わからない
 </button>
-
 <br>
-
+<button class="next" onclick="prevWord()">
+戻る
+</button>
 <button class="next" onclick="nextWord()">
 次へ
 </button>
-
+<br>
+<button class="reset" onclick="resetProgress()">
+学習履歴リセット
+</button>
 <div class="stats" id="stats"></div>
-
 <script>
-
 let allWords = [];
 let currentWords = [];
 let currentIndex = 0;
-
+let history = [];
 Promise.all([
-    fetch("vocab1.json").then(r=>r.json()),
-    fetch("vocab2.json").then(r=>r.json()),
-    fetch("vocab3.json").then(r=>r.json()),
-    fetch("vocab4.json").then(r=>r.json())
+   fetch("vocab1.json").then(r=>r.json()),
+   fetch("vocab2.json").then(r=>r.json()),
+   fetch("vocab3.json").then(r=>r.json()),
+   fetch("vocab4.json").then(r=>r.json())
 ])
 .then(data=>{
-
-    allWords = data.flat();
-
-    applyFilter();
-
+   allWords = data.flat();
+   applyFilter();
+})
+.catch(error=>{
+   document.getElementById("word").textContent =
+   "JSON読込失敗";
+   console.error(error);
 });
-
 document.getElementById("filter")
 .addEventListener("change",applyFilter);
-
 function applyFilter(){
-
-    const mode =
-    document.getElementById("filter").value;
-
-    if(mode==="all"){
-
-        currentWords=[...allWords];
-
-    }
-    else if(mode==="unlearned"){
-
-        currentWords=
-        allWords.filter(w=>
-        localStorage.getItem(w.word)===null);
-
-    }
-    else{
-
-        currentWords=
-        allWords.filter(w=>
-        localStorage.getItem(w.word)==="unknown");
-
-    }
-
-    shuffle(currentWords);
-
-    currentIndex=0;
-
-    showWord();
+   const mode =
+   document.getElementById("filter").value;
+   if(mode==="all"){
+       currentWords = [...allWords];
+   }
+   else if(mode==="unlearned"){
+       currentWords =
+       allWords.filter(w=>
+       localStorage.getItem(w.word)===null);
+   }
+   else if(mode==="unknown"){
+       currentWords =
+       allWords.filter(w=>
+       localStorage.getItem(w.word)==="unknown");
+   }
+   else if(mode==="known"){
+       currentWords =
+       allWords.filter(w=>
+       localStorage.getItem(w.word)==="known");
+   }
+   shuffle(currentWords);
+   currentIndex = 0;
+   history = [];
+   showWord();
 }
-
 function shuffle(array){
-
-    for(let i=array.length-1;i>0;i--){
-
-        const j=Math.floor(Math.random()*(i+1));
-
-        [array[i],array[j]]
-        =[array[j],array[i]];
-    }
-
+   for(let i=array.length-1;i>0;i--){
+       const j = Math.floor(
+           Math.random()*(i+1)
+       );
+       [array[i],array[j]]
+       =
+       [array[j],array[i]];
+   }
 }
-
 function showWord(){
-
-    if(currentWords.length===0){
-
-        document.getElementById("word")
-        .textContent="単語なし";
-
-        document.getElementById("detail")
-        .innerHTML="";
-
-        updateStats();
-
-        return;
-    }
-
-    const w=currentWords[currentIndex];
-
-    document.getElementById("word")
-    .textContent=w.word;
-
-    document.getElementById("detail")
-    .innerHTML=
-    "単語をタップすると意味を表示";
-
-    updateStats();
+   if(currentWords.length===0){
+       document.getElementById("word")
+       .textContent = "単語なし";
+       document.getElementById("detail")
+       .innerHTML = "該当する単語がありません";
+       updateStats();
+       return;
+   }
+   const w =
+   currentWords[currentIndex];
+   document.getElementById("word")
+   .textContent = w.word;
+   document.getElementById("detail")
+   .innerHTML =
+   "単語をタップすると意味を表示";
+   updateStats();
 }
-
 document.getElementById("word")
 .addEventListener("click",()=>{
-
-    if(currentWords.length===0)
-        return;
-
-    const w=currentWords[currentIndex];
-
-    let html="<h3>意味</h3>";
-
-    html+=w.meanings.join("<br>");
-
-    html+="<br><br><h3>表現</h3>";
-
-    if(w.phrases.length>0){
-
-        html+=w.phrases.join("<br>");
-
-    }
-    else{
-
-        html+="なし";
-
-    }
-
-    document.getElementById("detail")
-    .innerHTML=html;
-
+   if(currentWords.length===0)
+       return;
+   const w =
+   currentWords[currentIndex];
+   let html = "<h3>意味</h3>";
+   html += w.meanings.join("<br>");
+   html += "<br><br>";
+   html += "<h3>表現</h3>";
+   if(w.phrases &&
+      w.phrases.length > 0){
+       html +=
+       w.phrases.join("<br>");
+   }
+   else{
+       html += "なし";
+   }
+   document
+   .getElementById("detail")
+   .innerHTML = html;
 });
-
 function markKnown(){
-
-    if(currentWords.length===0)
-        return;
-
-    localStorage.setItem(
-        currentWords[currentIndex].word,
-        "known"
-    );
-
-    nextWord();
+   if(currentWords.length===0)
+       return;
+   localStorage.setItem(
+       currentWords[currentIndex].word,
+       "known"
+   );
+   nextWord();
 }
-
 function markUnknown(){
-
-    if(currentWords.length===0)
-        return;
-
-    localStorage.setItem(
-        currentWords[currentIndex].word,
-        "unknown"
-    );
-
-    nextWord();
+   if(currentWords.length===0)
+       return;
+   localStorage.setItem(
+       currentWords[currentIndex].word,
+       "unknown"
+   );
+   nextWord();
 }
-
 function nextWord(){
-
-    if(currentWords.length===0)
-        return;
-
-    currentIndex++;
-
-    if(currentIndex>=currentWords.length){
-
-        currentIndex=0;
-
-        shuffle(currentWords);
-    }
-
-    showWord();
+   if(currentWords.length===0)
+       return;
+   history.push(
+       currentIndex
+   );
+   currentIndex++;
+   if(currentIndex >=
+      currentWords.length){
+       currentIndex = 0;
+       shuffle(currentWords);
+   }
+   showWord();
 }
-
+function prevWord(){
+   if(history.length===0)
+       return;
+   currentIndex =
+   history.pop();
+   showWord();
+}
+function resetProgress(){
+   if(confirm(
+       "学習履歴をリセットしますか？"
+   )){
+       localStorage.clear();
+       applyFilter();
+       alert(
+       "学習履歴をリセットしました"
+       );
+   }
+}
 function updateStats(){
-
-    let known=0;
-    let unknown=0;
-
-    allWords.forEach(w=>{
-
-        const s=
-        localStorage.getItem(w.word);
-
-        if(s==="known") known++;
-        if(s==="unknown") unknown++;
-
-    });
-
-    const unlearned=
-    allWords.length-known-unknown;
-
-    document.getElementById("stats")
-    .innerHTML=
-
-    "総単語数: "+allWords.length+
-    "<br>わかる: "+known+
-    "<br>わからない: "+unknown+
-    "<br>未学習: "+unlearned;
-
+   let known = 0;
+   let unknown = 0;
+   allWords.forEach(w=>{
+       const s =
+       localStorage.getItem(
+           w.word
+       );
+       if(s==="known")
+           known++;
+       if(s==="unknown")
+           unknown++;
+   });
+   const unlearned =
+   allWords.length -
+   known -
+   unknown;
+   document
+   .getElementById("stats")
+   .innerHTML =
+   "総単語数: " +
+   allWords.length +
+   "<br>✅ わかる: " +
+   known +
+   "<br>❌ わからない: " +
+   unknown +
+   "<br>📚 未学習: " +
+   unlearned;
 }
-
 </script>
-
 </body>
 </html>
